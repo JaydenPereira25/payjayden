@@ -1,9 +1,8 @@
 import { createFileRoute } from '@tanstack/react-router'
 import { getUser } from '@netlify/identity'
+import { hasAdminSessionFromRequest } from '@/lib/admin-auth'
 import { getOrdersStore, type Order, type OrderStatus } from './api.orders'
 import { notifyOrderStatus } from '@/lib/notifications.server'
-
-const ADMIN_KEY = 'jaydendelivers2503'
 
 const ALLOWED_STATUSES: OrderStatus[] = [
   'pending',
@@ -15,22 +14,19 @@ const ALLOWED_STATUSES: OrderStatus[] = [
   'cancelled',
 ]
 
-async function isAdmin(request: Request, body: { adminKey?: string } | null): Promise<boolean> {
-  const url = new URL(request.url)
-  const fromQuery = url.searchParams.get('adminKey')
-  const fromBody = body?.adminKey
-  return fromQuery === ADMIN_KEY || fromBody === ADMIN_KEY
+function isAdmin(request: Request): boolean {
+  return hasAdminSessionFromRequest(request)
 }
 
 export const Route = createFileRoute('/api/orders/$id')({
   server: {
     handlers: {
-      GET: async ({ request, params }) => {
+      GET: async ({ params, request }) => {
         const store = await getOrdersStore()
         const order = (await store.get(params.id, { type: 'json' })) as Order | null
         if (!order) return Response.json({ error: 'Not found' }, { status: 404 })
 
-        if (await isAdmin(request, null)) {
+        if (isAdmin(request)) {
           return Response.json(order)
         }
 
@@ -43,13 +39,12 @@ export const Route = createFileRoute('/api/orders/$id')({
       },
       PATCH: async ({ request, params }) => {
         const body = await request.json() as {
-          adminKey?: string
           status?: OrderStatus
           deliveryPhoto?: string
           reason?: string
           resumeStatus?: OrderStatus
         }
-        if (!(await isAdmin(request, body))) {
+        if (!isAdmin(request)) {
           return Response.json({ error: 'Unauthorized' }, { status: 401 })
         }
         const store = await getOrdersStore()
@@ -114,14 +109,8 @@ export const Route = createFileRoute('/api/orders/$id')({
 
         return Response.json(updated)
       },
-      DELETE: async ({ request, params }) => {
-        let body: { adminKey?: string } | null = null
-        try {
-          body = await request.json()
-        } catch {
-          body = null
-        }
-        if (!(await isAdmin(request, body))) {
+      DELETE: async ({ params, request }) => {
+        if (!isAdmin(request)) {
           return Response.json({ error: 'Unauthorized' }, { status: 401 })
         }
         const store = await getOrdersStore()

@@ -1,6 +1,7 @@
 import { createFileRoute } from '@tanstack/react-router'
 import { getStore } from '@netlify/blobs'
 import { getUser } from '@netlify/identity'
+import { hasAdminSessionFromRequest } from '@/lib/admin-auth'
 import { notifyOrderStatus } from '@/lib/notifications.server'
 
 export interface OrderItem {
@@ -59,24 +60,12 @@ export const Route = createFileRoute('/api/orders')({
     handlers: {
       GET: async ({ request }) => {
         const url = new URL(request.url)
-        const adminKey = url.searchParams.get('adminKey')
         const mine = url.searchParams.get('mine')
+        const user = await getUser()
 
         const store = await getOrdersStore()
 
-        if (adminKey === 'jaydendelivers2503') {
-          const { blobs } = await store.list()
-          const orders: Order[] = []
-          for (const blob of blobs) {
-            const order = await store.get(blob.key, { type: 'json' })
-            if (order) orders.push(order as Order)
-          }
-          orders.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
-          return Response.json(orders)
-        }
-
         if (mine) {
-          const user = await getUser()
           if (!user) return Response.json({ error: 'Unauthorized' }, { status: 401 })
           const { blobs } = await store.list()
           const orders: Order[] = []
@@ -90,7 +79,19 @@ export const Route = createFileRoute('/api/orders')({
           return Response.json(orders)
         }
 
-        return Response.json({ error: 'Unauthorized' }, { status: 401 })
+        if (!hasAdminSessionFromRequest(request)) {
+          return Response.json({ error: 'Unauthorized' }, { status: 401 })
+        }
+
+        const { blobs } = await store.list()
+        const orders: Order[] = []
+        for (const blob of blobs) {
+          const order = await store.get(blob.key, { type: 'json' })
+          if (order) orders.push(order as Order)
+        }
+        orders.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
+        return Response.json(orders)
+
       },
       POST: async ({ request }) => {
         const body = await request.json() as Omit<Order, 'id' | 'createdAt' | 'status' | 'statusHistory' | 'userId' | 'userEmail' | 'deliveryPhoto' | 'delayReason' | 'cancelReason' | 'preDelayStatus'>

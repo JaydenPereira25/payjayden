@@ -1,14 +1,12 @@
 import { createFileRoute, useNavigate } from '@tanstack/react-router'
 import { useState, useEffect, useRef } from 'react'
-import { ChevronLeft, Package, ShoppingBag, Trash2, Plus, Edit2, Check, X, Truck, MapPin, Clock, RefreshCw, CreditCard, Camera, CheckCircle2, Upload, AlertTriangle, Ban, PlayCircle } from 'lucide-react'
+import { ChevronLeft, Package, ShoppingBag, Trash2, Plus, Edit2, Check, X, Truck, MapPin, Clock, RefreshCw, CreditCard, Camera, CheckCircle2, Upload, AlertTriangle, Ban, PlayCircle, Lock } from 'lucide-react'
 import type { Order, OrderStatus } from './api.orders'
 import type { Product } from './api.products'
 
 export const Route = createFileRoute('/admin')({
   component: AdminPage,
 })
-
-const ADMIN_KEY = 'jaydendelivers2503'
 
 type AdminTab = 'new' | 'in_progress' | 'successful' | 'attention' | 'products'
 
@@ -17,18 +15,40 @@ function AdminPage() {
   const [tab, setTab] = useState<AdminTab>('new')
   const [orders, setOrders] = useState<Order[]>([])
   const [products, setProducts] = useState<Product[]>([])
+  const [adminAuthorized, setAdminAuthorized] = useState<boolean | null>(null)
+  const [adminPassword, setAdminPassword] = useState('')
+  const [adminError, setAdminError] = useState('')
+  const [adminSubmitting, setAdminSubmitting] = useState(false)
   const [loadingOrders, setLoadingOrders] = useState(true)
   const [loadingProducts, setLoadingProducts] = useState(true)
 
   useEffect(() => {
+    ;(async () => {
+      try {
+        const res = await fetch('/api/admin-auth')
+        const data = await res.json() as { authorized?: boolean }
+        setAdminAuthorized(Boolean(data.authorized))
+      } catch {
+        setAdminAuthorized(false)
+      }
+    })()
+  }, [])
+
+  useEffect(() => {
+    if (!adminAuthorized) return
     fetchOrders()
     fetchProducts()
-  }, [])
+  }, [adminAuthorized])
 
   async function fetchOrders() {
     setLoadingOrders(true)
     try {
-      const res = await fetch(`/api/orders?adminKey=${ADMIN_KEY}`)
+      const res = await fetch('/api/orders')
+      if (res.status === 401) {
+        setAdminAuthorized(false)
+        setOrders([])
+        return
+      }
       const data = await res.json()
       setOrders(Array.isArray(data) ? data : [])
     } catch {
@@ -42,6 +62,11 @@ function AdminPage() {
     setLoadingProducts(true)
     try {
       const res = await fetch('/api/products')
+      if (res.status === 401) {
+        setAdminAuthorized(false)
+        setProducts([])
+        return
+      }
       const data = await res.json()
       setProducts(Array.isArray(data) ? data : [])
     } catch {
@@ -56,6 +81,91 @@ function AdminPage() {
   const successfulOrders = orders.filter(o => o.status === 'delivered')
   const attentionOrders = orders.filter(o => o.status === 'delayed' || o.status === 'cancelled')
 
+  async function handleAdminLogin(e: React.FormEvent<HTMLFormElement>) {
+    e.preventDefault()
+    setAdminError('')
+    setAdminSubmitting(true)
+    try {
+      const res = await fetch('/api/admin-auth', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ password: adminPassword }),
+      })
+      if (!res.ok) {
+        setAdminError('Incorrect password.')
+        return
+      }
+      setAdminPassword('')
+      setAdminAuthorized(true)
+    } catch {
+      setAdminError('Unable to verify password right now. Please try again.')
+    } finally {
+      setAdminSubmitting(false)
+    }
+  }
+
+  async function handleAdminLogout() {
+    await fetch('/api/admin-auth', { method: 'DELETE' })
+    setAdminAuthorized(false)
+    setOrders([])
+    setProducts([])
+    setLoadingOrders(true)
+    setLoadingProducts(true)
+  }
+
+  if (adminAuthorized === null) {
+    return (
+      <div className="min-h-screen bg-gray-50 font-inter flex items-center justify-center">
+        <div className="text-sm text-gray-500">Checking admin access…</div>
+      </div>
+    )
+  }
+
+  if (!adminAuthorized) {
+    return (
+      <div className="min-h-screen bg-gray-50 font-inter">
+        <header className="bg-white border-b border-gray-100 shadow-sm sticky top-0 z-30">
+          <div className="max-w-6xl mx-auto px-4 h-14 flex items-center gap-4">
+            <button onClick={() => navigate({ to: '/' })} className="p-1.5 hover:bg-gray-100 rounded-lg transition-colors">
+              <ChevronLeft className="w-5 h-5 text-gray-600" />
+            </button>
+            <span className="font-bold text-gray-900">
+              Pay<span className="text-blue-600">Jayden</span>
+              <span className="text-amber-500 font-semibold text-sm ml-2">Admin Panel</span>
+            </span>
+          </div>
+        </header>
+        <div className="max-w-md mx-auto px-4 py-16">
+          <form onSubmit={handleAdminLogin} className="bg-white rounded-2xl p-8 shadow-sm border border-gray-100">
+            <h1 className="text-xl font-bold text-gray-900 flex items-center gap-2 mb-2">
+              <Lock className="w-5 h-5 text-blue-600" />
+              Enter Admin Password
+            </h1>
+            <p className="text-sm text-gray-500 mb-5">
+              Enter the admin password to access the dashboard.
+            </p>
+            <input
+              type="password"
+              value={adminPassword}
+              onChange={e => setAdminPassword(e.target.value)}
+              className="w-full border border-gray-200 rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+              placeholder="Admin password"
+              required
+            />
+            {adminError && <p className="text-red-500 text-xs mt-2">{adminError}</p>}
+            <button
+              type="submit"
+              disabled={adminSubmitting}
+              className="w-full mt-4 bg-blue-600 hover:bg-blue-700 disabled:bg-blue-300 text-white font-semibold py-2.5 rounded-xl transition-colors"
+            >
+              {adminSubmitting ? 'Checking…' : 'Enter Dashboard'}
+            </button>
+          </form>
+        </div>
+      </div>
+    )
+  }
+
   return (
     <div className="min-h-screen bg-gray-50 font-inter">
       <header className="bg-white border-b border-gray-100 shadow-sm sticky top-0 z-30">
@@ -69,13 +179,21 @@ function AdminPage() {
               <span className="text-amber-500 font-semibold text-sm ml-2">Admin Panel</span>
             </span>
           </div>
-          <button
-            onClick={tab === 'products' ? fetchProducts : fetchOrders}
-            className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
-            title="Refresh"
-          >
-            <RefreshCw className="w-4 h-4 text-gray-500" />
-          </button>
+          <div className="flex items-center gap-2">
+            <button
+              onClick={tab === 'products' ? fetchProducts : fetchOrders}
+              className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
+              title="Refresh"
+            >
+              <RefreshCw className="w-4 h-4 text-gray-500" />
+            </button>
+            <button
+              onClick={handleAdminLogout}
+              className="text-xs font-medium text-gray-500 hover:text-gray-700 border border-gray-200 rounded-lg px-2.5 py-1.5 transition-colors"
+            >
+              Log out
+            </button>
+          </div>
         </div>
       </header>
 
@@ -202,7 +320,7 @@ function OrderCard({ order, onUpdate }: { order: Order; onUpdate: () => void }) 
       await fetch(`/api/orders/${order.id}`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ adminKey: ADMIN_KEY, ...payload }),
+        body: JSON.stringify(payload),
       })
       onUpdate()
     } finally {
@@ -215,8 +333,6 @@ function OrderCard({ order, onUpdate }: { order: Order; onUpdate: () => void }) 
     try {
       await fetch(`/api/orders/${order.id}`, {
         method: 'DELETE',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ adminKey: ADMIN_KEY }),
       })
       onUpdate()
     } finally {
@@ -725,7 +841,7 @@ function ProductsTab({ products, loading, onRefresh }: { products: Product[]; lo
       await fetch(`/api/products/${id}`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ product: editForm, adminKey: ADMIN_KEY }),
+        body: JSON.stringify({ product: editForm }),
       })
       setEditingId(null)
       onRefresh()
@@ -739,8 +855,6 @@ function ProductsTab({ products, loading, onRefresh }: { products: Product[]; lo
     try {
       await fetch(`/api/products/${id}`, {
         method: 'DELETE',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ adminKey: ADMIN_KEY }),
       })
       setDeleteConfirm(null)
       onRefresh()
@@ -756,7 +870,7 @@ function ProductsTab({ products, loading, onRefresh }: { products: Product[]; lo
       await fetch('/api/products', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ product: newForm, adminKey: ADMIN_KEY }),
+        body: JSON.stringify({ product: newForm }),
       })
       setAddingNew(false)
       setNewForm({ name: '', description: '', price: 0, image: '/placeholder.png', available: true })
