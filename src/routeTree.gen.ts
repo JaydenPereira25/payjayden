@@ -21,6 +21,7 @@ import { Route as CheckoutCancelRouteImport } from './routes/checkout/cancel'
 import { Route as ApiProfileRouteImport } from './routes/api.profile'
 import { Route as ApiProductsRouteImport } from './routes/api.products'
 import { Route as ApiOrdersRouteImport } from './routes/api.orders'
+import { Route as ApiAdminAuthRouteImport } from './routes/api.admin-auth'
 import { Route as ApiProductsIdRouteImport } from './routes/api.products.$id'
 import { Route as ApiOrdersIdRouteImport } from './routes/api.orders.$id'
 
@@ -84,6 +85,11 @@ const ApiOrdersRoute = ApiOrdersRouteImport.update({
   path: '/api/orders',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ApiAdminAuthRoute = ApiAdminAuthRouteImport.update({
+  id: '/api/admin-auth',
+  path: '/api/admin-auth',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const ApiProductsIdRoute = ApiProductsIdRouteImport.update({
   id: '/$id',
   path: '/$id',
@@ -101,6 +107,7 @@ export interface FileRoutesByFullPath {
   '/admin': typeof AdminRoute
   '/checkout': typeof CheckoutRouteWithChildren
   '/login': typeof LoginRoute
+  '/api/admin-auth': typeof ApiAdminAuthRoute
   '/api/orders': typeof ApiOrdersRouteWithChildren
   '/api/products': typeof ApiProductsRouteWithChildren
   '/api/profile': typeof ApiProfileRoute
@@ -117,6 +124,7 @@ export interface FileRoutesByTo {
   '/admin': typeof AdminRoute
   '/checkout': typeof CheckoutRouteWithChildren
   '/login': typeof LoginRoute
+  '/api/admin-auth': typeof ApiAdminAuthRoute
   '/api/orders': typeof ApiOrdersRouteWithChildren
   '/api/products': typeof ApiProductsRouteWithChildren
   '/api/profile': typeof ApiProfileRoute
@@ -134,6 +142,7 @@ export interface FileRoutesById {
   '/admin': typeof AdminRoute
   '/checkout': typeof CheckoutRouteWithChildren
   '/login': typeof LoginRoute
+  '/api/admin-auth': typeof ApiAdminAuthRoute
   '/api/orders': typeof ApiOrdersRouteWithChildren
   '/api/products': typeof ApiProductsRouteWithChildren
   '/api/profile': typeof ApiProfileRoute
@@ -152,6 +161,7 @@ export interface FileRouteTypes {
     | '/admin'
     | '/checkout'
     | '/login'
+    | '/api/admin-auth'
     | '/api/orders'
     | '/api/products'
     | '/api/profile'
@@ -168,6 +178,7 @@ export interface FileRouteTypes {
     | '/admin'
     | '/checkout'
     | '/login'
+    | '/api/admin-auth'
     | '/api/orders'
     | '/api/products'
     | '/api/profile'
@@ -184,6 +195,7 @@ export interface FileRouteTypes {
     | '/admin'
     | '/checkout'
     | '/login'
+    | '/api/admin-auth'
     | '/api/orders'
     | '/api/products'
     | '/api/profile'
@@ -201,6 +213,7 @@ export interface RootRouteChildren {
   AdminRoute: typeof AdminRoute
   CheckoutRoute: typeof CheckoutRouteWithChildren
   LoginRoute: typeof LoginRoute
+  ApiAdminAuthRoute: typeof ApiAdminAuthRoute
   ApiOrdersRoute: typeof ApiOrdersRouteWithChildren
   ApiProductsRoute: typeof ApiProductsRouteWithChildren
   ApiProfileRoute: typeof ApiProfileRoute
@@ -294,6 +307,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiOrdersRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/api/admin-auth': {
+      id: '/api/admin-auth'
+      path: '/api/admin-auth'
+      fullPath: '/api/admin-auth'
+      preLoaderRoute: typeof ApiAdminAuthRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/api/products/$id': {
       id: '/api/products/$id'
       path: '/$id'
@@ -355,6 +375,7 @@ const rootRouteChildren: RootRouteChildren = {
   AdminRoute: AdminRoute,
   CheckoutRoute: CheckoutRouteWithChildren,
   LoginRoute: LoginRoute,
+  ApiAdminAuthRoute: ApiAdminAuthRoute,
   ApiOrdersRoute: ApiOrdersRouteWithChildren,
   ApiProductsRoute: ApiProductsRouteWithChildren,
   ApiProfileRoute: ApiProfileRoute,
@@ -364,12 +385,3 @@ const rootRouteChildren: RootRouteChildren = {
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
   ._addFileTypes<FileRouteTypes>()
-
-import type { getRouter } from './router.tsx'
-import type { createStart } from '@tanstack/react-start'
-declare module '@tanstack/react-start' {
-  interface Register {
-    ssr: true
-    router: Awaited<ReturnType<typeof getRouter>>
-  }
-}

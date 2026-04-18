@@ -1,5 +1,6 @@
 import { createFileRoute } from '@tanstack/react-router'
 import { getStore } from '@netlify/blobs'
+import { hasAdminSessionFromRequest } from '@/lib/admin-auth'
 import type { Product } from './api.products'
 
 const DEFAULT_PRODUCTS: Product[] = [
@@ -18,19 +19,18 @@ export const Route = createFileRoute('/api/products/$id')({
   server: {
     handlers: {
       PUT: async ({ request, params }) => {
-        const body = await request.json() as { product: Partial<Product>; adminKey: string }
-        if (body.adminKey !== 'jaydendelivers2503') {
+        if (!hasAdminSessionFromRequest(request)) {
           return Response.json({ error: 'Unauthorized' }, { status: 401 })
         }
+        const body = await request.json() as { product: Partial<Product> }
         const store = await getProductsStore()
         const existing = ((await store.get('products', { type: 'json' })) as Product[] | null) ?? DEFAULT_PRODUCTS
         const updated = existing.map(p => p.id === params.id ? { ...p, ...body.product, id: params.id } : p)
         await store.setJSON('products', updated)
         return Response.json(updated.find(p => p.id === params.id))
       },
-      DELETE: async ({ request, params }) => {
-        const body = await request.json() as { adminKey: string }
-        if (body.adminKey !== 'jaydendelivers2503') {
+      DELETE: async ({ params, request }) => {
+        if (!hasAdminSessionFromRequest(request)) {
           return Response.json({ error: 'Unauthorized' }, { status: 401 })
         }
         const store = await getProductsStore()

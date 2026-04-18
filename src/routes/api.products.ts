@@ -1,5 +1,6 @@
 import { createFileRoute } from '@tanstack/react-router'
 import { getStore } from '@netlify/blobs'
+import { hasAdminSessionFromRequest } from '@/lib/admin-auth'
 
 export interface Product {
   id: string
@@ -71,10 +72,10 @@ export const Route = createFileRoute('/api/products')({
         }
       },
       POST: async ({ request }) => {
-        const body = await request.json() as { product: Product; adminKey: string }
-        if (body.adminKey !== 'jaydendelivers2503') {
+        if (!hasAdminSessionFromRequest(request)) {
           return Response.json({ error: 'Unauthorized' }, { status: 401 })
         }
+        const body = await request.json() as { product: Product }
         const store = await getProductsStore()
         const existing = ((await store.get('products', { type: 'json' })) as Product[] | null) ?? DEFAULT_PRODUCTS
         const newProduct: Product = {

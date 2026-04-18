@@ -37,6 +37,7 @@ function ShopPage() {
   const [adminModalOpen, setAdminModalOpen] = useState(false)
   const [adminPassword, setAdminPassword] = useState('')
   const [adminError, setAdminError] = useState('')
+  const [adminSubmitting, setAdminSubmitting] = useState(false)
   const [addedIds, setAddedIds] = useState<Set<string>>(new Set())
 
   useEffect(() => {
@@ -77,12 +78,27 @@ function ShopPage() {
   const subtotal = cart.reduce((sum, i) => sum + i.product.price * i.quantity, 0)
   const cartCount = cart.reduce((sum, i) => sum + i.quantity, 0)
 
-  function handleAdminLogin() {
-    if (adminPassword === 'jaydendelivers2503') {
-      navigate({ to: '/admin' })
-    } else {
-      setAdminError('Incorrect password. Please try again.')
+  async function handleAdminLogin(e: React.FormEvent<HTMLFormElement>) {
+    e.preventDefault()
+    setAdminError('')
+    setAdminSubmitting(true)
+    try {
+      const res = await fetch('/api/admin-auth', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ password: adminPassword }),
+      })
+      if (!res.ok) {
+        setAdminError('Incorrect password.')
+        return
+      }
       setAdminPassword('')
+      setAdminModalOpen(false)
+      navigate({ to: '/admin' })
+    } catch {
+      setAdminError('Unable to verify password right now. Please try again.')
+    } finally {
+      setAdminSubmitting(false)
     }
   }
 
@@ -282,34 +298,44 @@ function ShopPage() {
       {/* Admin Login Modal */}
       {adminModalOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
-          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-sm p-6">
+          <form onSubmit={handleAdminLogin} className="bg-white rounded-2xl shadow-2xl w-full max-w-sm p-6">
             <div className="flex items-center justify-between mb-5">
               <h2 className="text-lg font-bold text-gray-900 flex items-center gap-2">
                 <Lock className="w-5 h-5 text-blue-600" />
                 Admin Log-On
               </h2>
-              <button onClick={() => { setAdminModalOpen(false); setAdminError(''); setAdminPassword('') }} className="p-1 hover:bg-gray-100 rounded-lg">
+              <button
+                type="button"
+                onClick={() => {
+                  setAdminModalOpen(false)
+                  setAdminPassword('')
+                  setAdminError('')
+                }}
+                className="p-1 hover:bg-gray-100 rounded-lg"
+              >
                 <X className="w-5 h-5 text-gray-400" />
               </button>
             </div>
-            <label className="block text-sm font-medium text-gray-700 mb-1.5">Password</label>
+            <p className="text-sm text-gray-600 mb-4">
+              Enter the admin password to access the dashboard.
+            </p>
             <input
               type="password"
               value={adminPassword}
-              onChange={e => { setAdminPassword(e.target.value); setAdminError('') }}
-              onKeyDown={e => e.key === 'Enter' && handleAdminLogin()}
-              placeholder="Enter admin password"
-              className="w-full border border-gray-200 rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 mb-3"
-              autoFocus
+              onChange={e => setAdminPassword(e.target.value)}
+              className="w-full border border-gray-200 rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 mb-3"
+              placeholder="Admin password"
+              required
             />
             {adminError && <p className="text-red-500 text-xs mb-3">{adminError}</p>}
             <button
-              onClick={handleAdminLogin}
+              type="submit"
+              disabled={adminSubmitting}
               className="w-full bg-blue-600 hover:bg-blue-700 text-white font-semibold py-2.5 rounded-xl transition-colors"
             >
-              Enter Admin Panel
+              {adminSubmitting ? 'Checking…' : 'Enter Admin Panel'}
             </button>
-          </div>
+          </form>
         </div>
       )}
 
